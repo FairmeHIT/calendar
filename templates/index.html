@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}{{ month_name }} {{ current_year }} | 个人日历{% endblock %}
+
+{% block content %}
+<section class="calendar-head">
+  <a class="btn" href="{{ url_for('month_view', year=prev_year, month=prev_month) }}">上一月</a>
+  <h2>{{ current_year }} 年 {{ current_month }} 月</h2>
+  <a class="btn" href="{{ url_for('month_view', year=next_year, month=next_month) }}">下一月</a>
+</section>
+
+<section class="calendar-grid">
+  <div class="weekday">周一</div>
+  <div class="weekday">周二</div>
+  <div class="weekday">周三</div>
+  <div class="weekday">周四</div>
+  <div class="weekday">周五</div>
+  <div class="weekday">周六</div>
+  <div class="weekday">周日</div>
+
+  {% for week in month_matrix %}
+    {% for day in week %}
+      {% set day_key = day.isoformat() %}
+      <article class="day-cell {% if day.month != current_month %}muted{% endif %}">
+        <div class="day-number">{{ day.day }}</div>
+        <div class="events">
+          {% for event in events_by_day.get(day_key, []) %}
+            <a class="event-chip" href="{{ url_for('event_detail', event_id=event.id) }}">
+              {{ event.title }}
+            </a>
+          {% endfor %}
+        </div>
+      </article>
+    {% endfor %}
+  {% endfor %}
+</section>
+{% endblock %}

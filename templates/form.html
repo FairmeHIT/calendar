@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% if mode == 'create' %}
+  {% set page_title = '新建日程' %}
+{% else %}
+  {% set page_title = '编辑日程' %}
+{% endif %}
+{% block title %}{{ page_title }} | 个人日历{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2>{{ page_title }}</h2>
+  <form method="post" class="form-grid">
+    <label>
+      标题
+      <input name="title" required maxlength="120" value="{{ event.title if event else '' }}" />
+    </label>
+    <label>
+      开始时间
+      <input type="datetime-local" name="start_time" required value="{{ event.start_time if event else '' }}" />
+    </label>
+    <label>
+      结束时间
+      <input type="datetime-local" name="end_time" required value="{{ event.end_time if event else '' }}" />
+    </label>
+    <label>
+      地点（可选）
+      <input name="location" maxlength="120" value="{{ event.location if event else '' }}" />
+    </label>
+    <label class="full">
+      备注
+      <textarea name="notes" rows="4">{{ event.notes if event else '' }}</textarea>
+    </label>
+    <div class="actions full">
+      <button class="btn primary" type="submit">保存</button>
+      <a class="btn" href="{{ url_for('month_view') }}">取消</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

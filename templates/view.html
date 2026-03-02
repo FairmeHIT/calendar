@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block title %}日程详情 | 个人日历{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h2>{{ event.title }}</h2>
+  <dl class="detail-list">
+    <dt>开始</dt><dd>{{ event.start_time | fmt_dt }}</dd>
+    <dt>结束</dt><dd>{{ event.end_time | fmt_dt }}</dd>
+    <dt>地点</dt><dd>{{ event.location or '-' }}</dd>
+    <dt>备注</dt><dd>{{ event.notes or '-' }}</dd>
+  </dl>
+  <div class="actions">
+    <a class="btn" href="{{ url_for('edit_event', event_id=event.id) }}">编辑</a>
+    <form method="post" action="{{ url_for('delete_event', event_id=event.id) }}" onsubmit="return confirm('确认删除该日程？');">
+      <button class="btn danger" type="submit">删除</button>
+    </form>
+    <a class="btn" href="{{ url_for('month_view') }}">返回日历</a>
+  </div>
+</section>
+{% endblock %}
