@@ -44,6 +44,13 @@ personal-calendar/
   static/
 ```
 
+## 提交流程固化
+
+为避免后续提交犯错，已固化提交规范：
+
+- 见 `COMMIT_GUIDELINES.md`
+- 覆盖范围：提交范围、commit message 模板、推送前检查、认证与安全推送策略
+
 ## 说明
 
 - 数据库为 SQLite，默认文件 `calendar.db`。
