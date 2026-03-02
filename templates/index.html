@@ -8,6 +8,21 @@
   <a class="btn" href="{{ url_for('month_view', year=next_year, month=next_month) }}">下一月</a>
 </section>
 
+<section class="dashboard-strip">
+  <article class="metric-card">
+    <span class="metric-label">本月日程</span>
+    <strong class="metric-value">{{ month_event_count }}</strong>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">活跃天数</span>
+    <strong class="metric-value">{{ events_by_day | length }}</strong>
+  </article>
+  <article class="metric-card">
+    <span class="metric-label">今日</span>
+    <strong class="metric-value">{{ today.strftime('%m-%d') }}</strong>
+  </article>
+</section>
+
 <section class="calendar-grid">
   <div class="weekday">周一</div>
   <div class="weekday">周二</div>
@@ -20,11 +35,14 @@
   {% for week in month_matrix %}
     {% for day in week %}
       {% set day_key = day.isoformat() %}
-      <article class="day-cell {% if day.month != current_month %}muted{% endif %}">
-        <div class="day-number">{{ day.day }}</div>
+      <article class="day-cell {% if day.month != current_month %}muted{% endif %} {% if day == today %}today{% endif %}" data-day="{{ day_key }}">
+        <div class="day-meta">
+          <div class="day-number">{{ day.day }}</div>
+          <button class="quick-add" type="button" data-day="{{ day_key }}">+</button>
+        </div>
         <div class="events">
           {% for event in events_by_day.get(day_key, []) %}
-            <a class="event-chip" href="{{ url_for('event_detail', event_id=event.id) }}">
+            <a class="event-chip" draggable="true" data-event-id="{{ event.id }}" href="{{ url_for('event_detail', event_id=event.id) }}">
               {{ event.title }}
             </a>
           {% endfor %}
@@ -33,4 +51,92 @@
     {% endfor %}
   {% endfor %}
 </section>
+
+<div class="quick-modal" id="quickModal" hidden>
+  <div class="quick-modal-card">
+    <h3>快速新建</h3>
+    <form method="post" action="{{ url_for('quick_create_event') }}" class="quick-form">
+      <input type="hidden" name="day" id="quickDay" />
+      <label>
+        标题
+        <input type="text" name="title" placeholder="例如：产品评审" maxlength="120" required />
+      </label>
+      <div class="quick-time-row">
+        <label>
+          开始
+          <input type="time" name="start_hm" value="09:00" required />
+        </label>
+        <label>
+          结束
+          <input type="time" name="end_hm" value="10:00" required />
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn primary" type="submit">创建</button>
+        <button class="btn" id="quickCancel" type="button">取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById("quickModal");
+    const quickDay = document.getElementById("quickDay");
+    const cancelBtn = document.getElementById("quickCancel");
+
+    document.querySelectorAll(".quick-add").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        quickDay.value = btn.dataset.day;
+        modal.hidden = false;
+      });
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      modal.hidden = true;
+    });
+
+    modal.addEventListener("click", (e) => {
+      if (e.target === modal) modal.hidden = true;
+    });
+
+    document.querySelectorAll(".event-chip[draggable='true']").forEach((chip) => {
+      chip.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", chip.dataset.eventId);
+      });
+    });
+
+    document.querySelectorAll(".day-cell").forEach((cell) => {
+      cell.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        cell.classList.add("drop-target");
+      });
+
+      cell.addEventListener("dragleave", () => {
+        cell.classList.remove("drop-target");
+      });
+
+      cell.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        cell.classList.remove("drop-target");
+
+        const eventId = e.dataTransfer.getData("text/plain");
+        const day = cell.dataset.day;
+        if (!eventId || !day) return;
+
+        try {
+          const resp = await fetch(`/events/${eventId}/move`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ day }),
+          });
+          if (!resp.ok) throw new Error("move failed");
+          window.location.reload();
+        } catch (err) {
+          alert("拖拽改期失败，请重试");
+        }
+      });
+    });
+  })();
+</script>
 {% endblock %}

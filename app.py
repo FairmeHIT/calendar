@@ -8,7 +8,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
 
-from flask import Flask, flash, g, redirect, render_template, request, url_for
+from flask import Flask, flash, g, jsonify, redirect, render_template, request, url_for
 
 BASE_DIR = Path(__file__).resolve().parent
 DB_PATH = BASE_DIR / "calendar.db"
@@ -112,6 +112,8 @@ def month_view():
     prev_month = first_day - timedelta(days=1)
     next_month_ref = next_month
 
+    month_event_count = len(rows)
+
     return render_template(
         "index.html",
         month_matrix=month_matrix,
@@ -119,10 +121,12 @@ def month_view():
         current_month=month,
         month_name=calendar.month_name[month],
         events_by_day=events_by_day,
+        month_event_count=month_event_count,
         prev_year=prev_month.year,
         prev_month=prev_month.month,
         next_year=next_month_ref.year,
         next_month=next_month_ref.month,
+        today=datetime.now().date(),
     )
 
 
@@ -158,6 +162,66 @@ def create_event():
         return redirect(url_for("month_view"))
 
     return render_template("form.html", event=None, mode="create")
+
+
+@app.post("/events/quick")
+def quick_create_event():
+    title = request.form.get("title", "").strip() or "未命名日程"
+    day_raw = request.form.get("day", "")
+    start_hm = request.form.get("start_hm", "09:00")
+    end_hm = request.form.get("end_hm", "10:00")
+
+    try:
+        start_dt = datetime.fromisoformat(f"{day_raw}T{start_hm}")
+        end_dt = datetime.fromisoformat(f"{day_raw}T{end_hm}")
+    except ValueError:
+        flash("快速新建失败：日期或时间格式不正确。", "error")
+        return redirect(url_for("month_view"))
+
+    if end_dt <= start_dt:
+        end_dt = start_dt + timedelta(hours=1)
+
+    get_db().execute(
+        """
+        INSERT INTO events (title, start_time, end_time, location, notes)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (title, start_dt.isoformat(), end_dt.isoformat(), "", ""),
+    )
+    get_db().commit()
+    flash("日程已快速创建。", "success")
+
+    return redirect(url_for("month_view", year=start_dt.year, month=start_dt.month))
+
+
+@app.post("/events/<int:event_id>/move")
+def move_event(event_id: int):
+    event = fetch_event(event_id)
+    if event is None:
+        return jsonify({"ok": False, "error": "event not found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    day_raw = str(payload.get("day", "")).strip()
+
+    try:
+        new_day = datetime.fromisoformat(day_raw).date()
+    except ValueError:
+        return jsonify({"ok": False, "error": "invalid day"}), 400
+
+    old_start = datetime.fromisoformat(event["start_time"])
+    old_end = datetime.fromisoformat(event["end_time"])
+    duration = old_end - old_start
+
+    new_start = datetime.combine(new_day, old_start.time())
+    new_end = new_start + duration
+
+    get_db().execute(
+        "UPDATE events SET start_time = ?, end_time = ? WHERE id = ?",
+        (new_start.isoformat(), new_end.isoformat(), event_id),
+    )
+    get_db().commit()
+
+    return jsonify({"ok": True})
 
 
 @app.route("/events/<int:event_id>")
